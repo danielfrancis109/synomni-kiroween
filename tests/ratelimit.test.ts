@@ -101,9 +101,9 @@ describe("isRateLimitEnabled", () => {
 });
 
 describe("clientIp", () => {
-  it("extracts the first x-forwarded-for entry", () => {
+  it("uses the last x-forwarded-for entry (the proxy-set one; earlier entries are client-controlled)", () => {
     const h = new Headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" });
-    expect(clientIp(h)).toBe("1.2.3.4");
+    expect(clientIp(h)).toBe("5.6.7.8");
   });
 
   it("falls back to unknown when header is absent", () => {

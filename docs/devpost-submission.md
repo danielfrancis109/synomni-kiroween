@@ -47,4 +47,4 @@ git clone https://github.com/danielfrancis109/synomni-kiroween.git
 cd synomni-kiroween && npm ci && npm run dev
 # open http://localhost:3000/chamber — no login, no keys (Demo provider)
 ```
-Hosted demo URL: _TODO — see docs/hosting-plan.md_.
+**Live demo (no login, no keys needed):** https://kiroween.synomni.infinitybuilds.download — open `/chamber`. It runs the Demo provider for anonymous judges; the Local-model option is disabled on the hosted instance, requests are rate-limited, and notes are private to your browser session (cleared after 24 h).

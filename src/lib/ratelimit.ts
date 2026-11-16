@@ -86,8 +86,12 @@ export function isRateLimitEnabled(): boolean {
 export function clientIp(headers: Headers): string {
   const xff = headers.get("x-forwarded-for");
   if (xff) {
-    const first = xff.split(",")[0]?.trim();
-    if (first) return first;
+    // Use the LAST entry: the reverse proxy (Caddy) is the only hop that can
+    // reach the app and the address it appends/sets is the real client.
+    // Anything a client puts earlier in the header is attacker-controlled.
+    const parts = xff.split(",").map((x) => x.trim()).filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last) return last;
   }
   return "unknown";
 }
