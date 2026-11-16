@@ -9,8 +9,8 @@ Electric-green-on-black laboratory theme, monospace everywhere, stitched-seam CS
 ## Clone and run
 
 ```bash
-git clone <repo-url>
-cd synomni-chamber
+git clone https://github.com/danielfrancis109/synomni-kiroween.git
+cd synomni-kiroween
 npm ci
 npm run dev        # http://localhost:3000 → redirects to /chamber
 ```
