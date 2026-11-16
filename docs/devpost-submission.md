@@ -27,7 +27,7 @@ People already use several AIs, but each model is trapped in its own tab. Good i
 - Not used: Kiro IDE, custom agents, powers, property-based tests.
 
 ## Challenges
-Tailwind v4 needed a different PostCSS pipeline than the model first assumed (the first build rendered unstyled; caught by a screenshot and fixed in a follow-up Kiro task). Hardening the SSRF guard for the local-model URL (private ranges, cloud metadata, IPv4-mapped IPv6).
+Tailwind v4 needed a different PostCSS pipeline than the model first assumed (the first build rendered unstyled; caught by a screenshot and fixed in a follow-up Kiro prompt). Hardening the SSRF guard for the local-model URL (private ranges, cloud metadata, IPv4-mapped IPv6).
 
 ## Accomplishments
 75 unit tests, a Playwright smoke test of the whole flow, security headers, SSRF guard, a clean-clone `npm ci && npm run dev` path.
