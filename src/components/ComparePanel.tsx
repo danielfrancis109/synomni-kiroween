@@ -16,7 +16,7 @@ interface Message {
   content: string;
 }
 
-const PROVIDERS = [
+const ALL_PROVIDERS = [
   {
     id: "demo",
     label: "Demo (offline)",
@@ -89,7 +89,10 @@ const defaultCol = (): CompareColumn => ({
 const COL_LABELS = ["Column A", "Column B"] as const;
 const COL_COLORS = ["#39ff14", "#14e0ff"] as const;
 
-export default function ComparePanel() {
+export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
+  const PROVIDERS = hosted
+    ? ALL_PROVIDERS.filter((p) => p.id !== "local")
+    : ALL_PROVIDERS;
   const [cols, setCols] = useState<[CompareColumn, CompareColumn]>([
     defaultCol(),
     defaultCol(),

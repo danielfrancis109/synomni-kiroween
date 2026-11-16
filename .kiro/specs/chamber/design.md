@@ -206,3 +206,77 @@ Single page, three collapsible panels arranged vertically on mobile, side-by-sid
 | E2E | `e2e/smoke.test.ts` | Full user journey: compare → forward → conference → save note |
 
 Vitest runs in Node environment (`environment: 'node'`). Playwright targets `http://localhost:3000` with `webServer` config pointing to `npm run dev`.
+
+---
+
+## 9. Hosted public demo mode (Task 9)
+
+### Overview
+
+When `HOSTED_DEMO=true` the application activates three layers of protection: provider restriction, rate limiting, and session-scoped memory isolation. Non-hosted behaviour is entirely unchanged.
+
+### `/api/config`
+
+A lightweight `GET /api/config` route returns `{ hosted: boolean }`. The browser fetches this on mount and passes the result as a `hosted` prop to `ComparePanel`, `ConferencePanel`, and `SettingsDrawer`, which filter out the Local provider option.
+
+### Local-provider guard
+
+`/api/chat` and `/api/conference` check `process.env.HOSTED_DEMO === 'true'` before resolving the provider. A `local` `providerId` returns `{ error: { code: 'LOCAL_DISABLED', message: '...' } }` with HTTP 403. `baseUrl` from the client is ignored for all hosted vendor calls.
+
+### Rate limiter (`src/lib/ratelimit.ts`)
+
+Fixed-window algorithm keyed by `${bucket}:${ip}`:
+
+```
+checkRateLimit(ip, bucket) → { allowed, retryAfterSeconds }
+```
+
+- `bucket = 'chat'`  — shared by `/api/chat` and `/api/conference`; default 30/min
+- `bucket = 'write'` — `/api/memory` POST and DELETE; default 20/min
+- IP extracted from first `x-forwarded-for` entry, fallback `"unknown"`
+- Map bounded at 10 000 entries; oldest evicted (by `windowStart`) when exceeded
+- Activated by `HOSTED_DEMO=true` OR `RATE_LIMIT=true`; rejected requests get `Retry-After` header
+
+### Session-scoped memory
+
+```
+memory.ts
+  ├── saveNoteForSession(sid, title, content): Note
+  ├── listNotesForSession(sid): NoteListItem[]
+  ├── retrieveNoteForSession(sid, id): Note
+  ├── deleteNoteForSession(sid, id): void
+  └── searchNotesForSession(sid, query): SearchResult[]
+```
+
+File path: `${MEMORY_DIR}/${sid}.json` (default `data/sessions/<sid>.json`).
+
+Cookie `chamber_sid` is an httpOnly, SameSite=Lax UUID set by all memory routes when absent or invalid. Memory routes validate it against `/^[0-9a-f]{8}-[0-9a-f]{4}-...-[0-9a-f]{12}$/i`.
+
+**Caps** (enforced synchronously in the write queue):
+- 50 notes per session → 409 `MEMORY_FULL`
+- 200 KB per session file → 409 `MEMORY_FULL`
+- 500 session files total → oldest files deleted before creating new ones
+
+**Cleanup**: `runSessionCleanupIfDue()` is called at the start of each memory route handler. It runs at most every 10 minutes and deletes files with `mtime < now - SESSION_TTL_HOURS * 3600 * 1000`.
+
+### Body size guard
+
+In hosted mode all three mutating routes check `Content-Length`; payloads over 256 KB return 413 `PAYLOAD_TOO_LARGE`.
+
+### Docker
+
+Multi-stage Dockerfile:
+
+1. **deps** — `npm ci` on `node:22-alpine`
+2. **builder** — `npm run build` (produces `output: standalone`)
+3. **runner** — copies `.next/standalone`, `.next/static`, `public`; creates `/app/data` owned by `nextjs:nodejs` (uid/gid 1001); `VOLUME ["/app/data"]`; `HEALTHCHECK` on `/api/config`; `USER nextjs`; `CMD ["node", "server.js"]`
+
+### Testing additions
+
+| Suite | File | What it covers |
+|-------|------|---------------|
+| Unit | `tests/ratelimit.test.ts` | Bucket independence, per-IP tracking, window reset, `isRateLimitEnabled`, `clientIp` |
+| Unit | `tests/hosted-memory.test.ts` | Session CRUD isolation, 50-note cap, cross-session note invisibility |
+| Unit | `tests/hosted-local-provider.test.ts` | 403 for `local` provider when hosted, 200 for `demo` provider |
+| E2E | `e2e/hosted-demo.test.ts` | Local option absent in pickers; notes isolated across two browser contexts |
+

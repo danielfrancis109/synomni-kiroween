@@ -121,3 +121,36 @@ Requirements use EARS notation:
 **R7.2** The repository shall contain a `LICENSE` file with the MIT license text.
 
 **R7.3** The README shall include a disclosure blurb stating the app is a Kiroween 2026 entry, inspired by (not copied from) Synomni at synomni.infinitybuilds.download.
+
+---
+
+## R8 — Hosted public demo mode
+
+**R8.1** Where `HOSTED_DEMO=true`, the system shall reject requests to `/api/chat` and `/api/conference` that specify `providerId=local` with HTTP 403 and error code `LOCAL_DISABLED`.
+
+**R8.2** Where `HOSTED_DEMO=true`, the system shall expose `GET /api/config` returning `{ hosted: boolean }` so the browser can discover the mode and hide the Local provider option.
+
+**R8.3** Where `HOSTED_DEMO=true`, the system shall apply a fixed-window per-IP rate limiter (`src/lib/ratelimit.ts`): 30 requests/min/IP on `/api/chat` and `/api/conference`, 20 writes/min/IP on `/api/memory`. When exceeded, the system shall return HTTP 429 with a `Retry-After` header and error code `RATE_LIMITED`.
+
+**R8.4** The rate limit window sizes shall be overridable via `RATE_LIMIT_CHAT_PER_MIN` and `RATE_LIMIT_WRITE_PER_MIN` environment variables. The limiter shall also activate when `RATE_LIMIT=true` independently of `HOSTED_DEMO`.
+
+**R8.5** The in-memory rate-limit map shall be bounded; once it exceeds the internal cap the system shall evict the oldest entries.
+
+**R8.6** Where `HOSTED_DEMO=true`, memory notes shall be scoped to an anonymous session identified by an `httpOnly SameSite=Lax` cookie named `chamber_sid` (UUID). Each session shall have its own file under `MEMORY_DIR` (default `data/sessions/<sid>.json`). The memory API shall set the cookie when absent or invalid.
+
+**R8.7** Where `HOSTED_DEMO=true`, the system shall enforce per-session caps: max 50 notes (409 `MEMORY_FULL`), max 200 KB per session file, and max 500 session files total (oldest deleted when exceeded).
+
+**R8.8** A session cleanup function shall purge files older than `SESSION_TTL_HOURS` (default 24) and run at most every 10 minutes, triggered lazily from memory route handlers.
+
+**R8.9** Non-hosted mode shall keep the existing single-file memory behaviour so the MCP server and existing tests are unaffected.
+
+**R8.10** Where `HOSTED_DEMO=true`, the system shall reject request bodies exceeding 256 KB with HTTP 413.
+
+**R8.11** The repository shall include a production `Dockerfile` using a multi-stage build (node 22 alpine, non-root user, `next build` with `output: standalone`, `HEALTHCHECK` on `/api/config`, `EXPOSE 3000`, data directory volume at `/app/data`).
+
+**R8.12** The system shall include unit tests for the rate limiter (`tests/ratelimit.test.ts`), hosted memory isolation (`tests/hosted-memory.test.ts`), and Local-provider rejection (`tests/hosted-local-provider.test.ts`).
+
+**R8.13** The Playwright suite shall include a `hosted-demo` project running against a second `next dev` instance on port 3002 with `HOSTED_DEMO=true`, asserting the Local provider option is absent and that notes are isolated between two browser contexts.
+
+**R8.14** `npm run test:e2e` shall accept an `E2E_BASE_URL` environment variable; when set, it shall not start a `webServer` and shall target that URL with the standard smoke suite.
+

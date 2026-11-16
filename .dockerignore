@@ -1,0 +1,11 @@
+node_modules
+.next
+data
+.git
+test-results
+e2e
+tests
+*.test.ts
+playwright.config.ts
+vitest.config.ts
+# Note: .kiro/ is intentionally NOT excluded — steering docs are project artifacts.

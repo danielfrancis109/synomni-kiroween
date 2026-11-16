@@ -3,6 +3,9 @@ import { z } from "zod";
 import { MessagesSchema, securityHeaders, redactKeys } from "@/lib/security";
 import { getProvider, ProviderTimeoutError, ProviderHTTPError } from "@/lib/providers";
 import type { ProviderId } from "@/lib/providers";
+import { checkRateLimit, isRateLimitEnabled, clientIp } from "@/lib/ratelimit";
+
+const BODY_SIZE_LIMIT = 256 * 1024; // 256 KB
 
 const ChatRequestSchema = z.object({
   messages: MessagesSchema,
@@ -14,6 +17,36 @@ const ChatRequestSchema = z.object({
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const headers = securityHeaders();
+  const hosted = process.env.HOSTED_DEMO === "true";
+
+  // Body size guard (hosted mode)
+  if (hosted) {
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && Number(contentLength) > BODY_SIZE_LIMIT) {
+      return NextResponse.json(
+        { error: { code: "PAYLOAD_TOO_LARGE", message: "Request body exceeds 256 KB limit" } },
+        { status: 413, headers }
+      );
+    }
+  }
+
+  // Rate limiting
+  if (isRateLimitEnabled()) {
+    const ip = clientIp(req.headers);
+    const result = checkRateLimit(ip, "chat");
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Rate limit exceeded. Try again shortly." } },
+        {
+          status: 429,
+          headers: {
+            ...headers,
+            "Retry-After": String(result.retryAfterSeconds),
+          },
+        }
+      );
+    }
+  }
 
   let body: unknown;
   try {
@@ -38,7 +71,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     );
   }
 
-  const { messages, providerId, model, apiKey, baseUrl } = parsed.data;
+  const { messages, providerId, model, apiKey } = parsed.data;
+  // In hosted mode, ignore any client-supplied baseUrl for security.
+  const baseUrl = hosted ? undefined : parsed.data.baseUrl;
+
+  // Reject local provider in hosted mode.
+  if (hosted && providerId === "local") {
+    return NextResponse.json(
+      { error: { code: "LOCAL_DISABLED", message: "The Local provider is not available in hosted mode." } },
+      { status: 403, headers }
+    );
+  }
 
   let provider;
   try {

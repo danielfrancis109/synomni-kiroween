@@ -9,6 +9,9 @@ import {
   ConferenceCompleteError,
 } from "@/lib/conference";
 import type { ConferenceState, Turn } from "@/lib/conference";
+import { checkRateLimit, isRateLimitEnabled, clientIp } from "@/lib/ratelimit";
+
+const BODY_SIZE_LIMIT = 256 * 1024; // 256 KB
 
 const AgentSchema = z.object({
   id: z.string(),
@@ -40,6 +43,36 @@ const ConferenceRequestSchema = z.object({
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const headers = securityHeaders();
+  const hosted = process.env.HOSTED_DEMO === "true";
+
+  // Body size guard (hosted mode)
+  if (hosted) {
+    const contentLength = req.headers.get("content-length");
+    if (contentLength && Number(contentLength) > BODY_SIZE_LIMIT) {
+      return NextResponse.json(
+        { error: { code: "PAYLOAD_TOO_LARGE", message: "Request body exceeds 256 KB limit" } },
+        { status: 413, headers }
+      );
+    }
+  }
+
+  // Rate limiting
+  if (isRateLimitEnabled()) {
+    const ip = clientIp(req.headers);
+    const result = checkRateLimit(ip, "chat");
+    if (!result.allowed) {
+      return NextResponse.json(
+        { error: { code: "RATE_LIMITED", message: "Rate limit exceeded. Try again shortly." } },
+        {
+          status: 429,
+          headers: {
+            ...headers,
+            "Retry-After": String(result.retryAfterSeconds),
+          },
+        }
+      );
+    }
+  }
 
   let body: unknown;
   try {
@@ -69,6 +102,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     apiKeys?: Record<string, string>;
   };
   const typedState = state;
+
+  // Reject local provider in hosted mode.
+  if (hosted) {
+    for (const agent of typedState.agents) {
+      if (agent.providerId === "local") {
+        return NextResponse.json(
+          { error: { code: "LOCAL_DISABLED", message: "The Local provider is not available in hosted mode." } },
+          { status: 403, headers }
+        );
+      }
+    }
+  }
 
   let agentIdx: number;
   try {
@@ -113,6 +158,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const content = await provider.complete(messages, {
       model: agent.model,
       apiKey,
+      // In hosted mode, never use a client-supplied baseUrl.
+      baseUrl: hosted ? undefined : undefined,
       timeoutMs: Number(process.env.PROVIDER_TIMEOUT_MS ?? 30000),
     });
 

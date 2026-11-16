@@ -25,7 +25,7 @@ interface ConferenceState {
   maxTurns: number;
 }
 
-const PROVIDERS = [
+const ALL_PROVIDERS = [
   { id: "demo", label: "Demo", models: ["demo", "demo-scientist", "demo-philosopher"] },
   { id: "anthropic", label: "Anthropic", models: ["claude-opus-4-5", "claude-sonnet-4-5"] },
   { id: "openai", label: "OpenAI", models: ["gpt-4o", "gpt-4o-mini"] },
@@ -68,9 +68,14 @@ const DEFAULT_AGENTS: Agent[] = [
 
 export default function ConferencePanel({
   onSaveTranscript,
+  hosted = false,
 }: {
   onSaveTranscript?: (transcript: string) => void;
+  hosted?: boolean;
 }) {
+  const PROVIDERS = hosted
+    ? ALL_PROVIDERS.filter((p) => p.id !== "local")
+    : ALL_PROVIDERS;
   const [agents, setAgents] = useState<Agent[]>(DEFAULT_AGENTS);
   const [policy, setPolicy] = useState<"round-robin" | "open-floor">("round-robin");
   const [maxTurns, setMaxTurns] = useState(6);

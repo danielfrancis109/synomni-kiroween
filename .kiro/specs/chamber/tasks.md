@@ -82,3 +82,20 @@ Tasks are ordered so the repo is runnable after Task 2 and incrementally richer 
 - [x] 8.3 Run `npm run build` and fix any TypeScript or lint errors surfaced by the production build. (tech.md)
 - [x] 8.4 Run `npm test` and `npm run test:e2e`; fix any failures. (R6.3, R6.4)
 - [x] 8.5 Audit all route handlers: confirm `securityHeaders()` applied, zod validation present, no key material in any log call, stack traces gated on `NODE_ENV`. (R5.7–R5.9)
+
+---
+
+## Task 9 — Hosted public demo mode
+*When `HOSTED_DEMO=true` the app is safe to expose publicly: Local provider is blocked, requests are rate-limited, and memory is isolated per anonymous session.*
+
+- [x] 9.1 Add `GET /api/config` returning `{ hosted: boolean }` so the browser can discover the mode. Add `HEALTHCHECK` target. (R8.2)
+- [x] 9.2 Create `src/lib/ratelimit.ts`: fixed-window limiter, `checkRateLimit(ip, bucket)`, `isRateLimitEnabled()`, `clientIp(headers)`, bounded map with eviction, configurable via `RATE_LIMIT_CHAT_PER_MIN` / `RATE_LIMIT_WRITE_PER_MIN`. (R8.3–R8.5)
+- [x] 9.3 Update `/api/chat`: reject `providerId=local` with 403 `LOCAL_DISABLED` when hosted; ignore client `baseUrl` when hosted; apply rate limiter; body size guard (256 KB, 413) in hosted mode. (R8.1, R8.3, R8.10)
+- [x] 9.4 Update `/api/conference`: same Local-provider guard, same rate limiter, same body size guard; ignore `baseUrl` for hosted vendors. (R8.1, R8.3, R8.10)
+- [x] 9.5 Extend `src/lib/memory.ts`: add `saveNoteForSession`, `listNotesForSession`, `retrieveNoteForSession`, `deleteNoteForSession`, `searchNotesForSession`, `MemoryFullError`, `runSessionCleanupIfDue`; non-hosted API unchanged. (R8.6–R8.9)
+- [x] 9.6 Update `/api/memory/route.ts` and `/api/memory/[id]/route.ts`: session cookie (`chamber_sid`, httpOnly, SameSite=Lax); dispatch to session-scoped functions when hosted; apply rate limiter on writes; body size guard. (R8.6, R8.7, R8.10)
+- [x] 9.7 Fetch `/api/config` on mount in `chamber/page.tsx`; pass `hosted` prop to `ComparePanel`, `ConferencePanel`, `SettingsDrawer`; each filters out the Local option when `hosted=true`. (R8.2)
+- [x] 9.8 Write `tests/ratelimit.test.ts`, `tests/hosted-memory.test.ts`, `tests/hosted-local-provider.test.ts`. (R8.12)
+- [x] 9.9 Add Playwright `hosted-demo` project in `playwright.config.ts` (port 3002, `HOSTED_DEMO=true`, temp `MEMORY_DIR`); write `e2e/hosted-demo.test.ts` asserting Local option absent and note isolation between contexts. Support `E2E_BASE_URL` env to skip `webServer`. (R8.13, R8.14)
+- [x] 9.10 Add `Dockerfile` (multi-stage, `node:22-alpine`, non-root user, standalone output, `HEALTHCHECK /api/config`, `VOLUME /app/data`) and `.dockerignore`. Set `output: "standalone"` in `next.config.ts`. (R8.11)
+- [x] 9.11 Document all hosted env vars in `README.md` and `.env.example`; run `npm test`, `npm run build`, `npm run test:e2e` until green. (R8.1–R8.14)

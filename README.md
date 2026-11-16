@@ -38,9 +38,43 @@ Copy `.env.example` to `.env.local` and set values there. Never commit `.env.loc
 | Variable | Default | Description |
 |---|---|---|
 | `PROVIDER_TIMEOUT_MS` | `30000` | Milliseconds before a provider fetch is aborted |
-| `MEMORY_FILE` | `./data/memory.json` | Path to the JSON memory store |
+| `MEMORY_FILE` | `./data/memory.json` | Path to the JSON memory store (non-hosted mode) |
 | `ALLOW_LOCAL_URLS` | `false` | Set `true` to allow the Local provider to reach `localhost` / private IPs (required for Ollama) |
 | `LOCAL_URL_ALLOWLIST` | _(none)_ | Comma-separated hostnames permitted for the Local provider, e.g. `localhost,my-ollama.internal` |
+
+### Hosted public demo mode
+
+Set `HOSTED_DEMO=true` to run as a public instance. This activates:
+
+- **Local provider blocked**: `/api/chat` and `/api/conference` return 403 `LOCAL_DISABLED` for `providerId=local`; the UI hides the Local option automatically.
+- **Rate limiting**: fixed-window per-IP limiter on all API routes; exceeding the limit returns 429 with a `Retry-After` header and code `RATE_LIMITED`.
+- **Session isolation**: each anonymous visitor gets an `httpOnly SameSite=Lax` cookie (`chamber_sid`); notes are stored in `MEMORY_DIR/<sid>.json` rather than the global file. Sessions expire after `SESSION_TTL_HOURS` hours.
+- **Request body guard**: bodies over 256 KB are rejected with 413 in hosted mode.
+
+| Variable | Default | Description |
+|---|---|---|
+| `HOSTED_DEMO` | `false` | Enable hosted public demo mode |
+| `RATE_LIMIT` | `false` | Enable rate limiting independently of `HOSTED_DEMO` |
+| `RATE_LIMIT_CHAT_PER_MIN` | `30` | Per-IP request limit for `/api/chat` and `/api/conference` |
+| `RATE_LIMIT_WRITE_PER_MIN` | `20` | Per-IP request limit for `/api/memory` write operations |
+| `MEMORY_DIR` | `./data/sessions` | Directory for per-session memory files |
+| `SESSION_TTL_HOURS` | `24` | Hours before an idle session file is purged |
+
+### Docker
+
+```bash
+docker build -t synomni-chamber .
+docker run -p 3000:3000 -v $(pwd)/data:/app/data synomni-chamber
+
+# Run as a hosted demo:
+docker run -p 3000:3000 \
+  -e HOSTED_DEMO=true \
+  -e RATE_LIMIT_CHAT_PER_MIN=30 \
+  -v $(pwd)/data:/app/data \
+  synomni-chamber
+```
+
+The `HEALTHCHECK` hits `/api/config`; the container is considered healthy once that returns 200.
 
 ### Using Ollama (bring-your-own model)
 

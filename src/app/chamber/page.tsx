@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import dynamic from "next/dynamic";
 
 // Dynamic imports to avoid SSR issues with localStorage
@@ -25,6 +25,16 @@ interface PendingSave {
 export default function ChamberPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [pendingSave, setPendingSave] = useState<PendingSave | null>(null);
+  const [hosted, setHosted] = useState(false);
+
+  useEffect(() => {
+    fetch("/api/config")
+      .then((r) => r.json())
+      .then((d: { hosted?: boolean }) => {
+        if (d.hosted) setHosted(true);
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSaveTranscript = useCallback((transcript: string) => {
     const title = `Conference — ${new Date().toLocaleString()}`;
@@ -115,6 +125,7 @@ export default function ChamberPage() {
       <SettingsDrawer
         open={settingsOpen}
         onClose={() => setSettingsOpen(false)}
+        hosted={hosted}
       />
 
       {/* ── Main workspace — three panels ──────────────────────────────── */}
@@ -133,13 +144,13 @@ export default function ChamberPage() {
           >
             {/* Compare — spans 2 cols on large screens */}
             <div className="lg:col-span-2 seam-border glow-border rounded-lg p-5">
-              <ComparePanel />
+              <ComparePanel hosted={hosted} />
             </div>
 
             {/* Right column: Conference + Memory stacked */}
             <div className="flex flex-col gap-4">
               <div className="seam-border glow-border rounded-lg p-4">
-                <ConferencePanel onSaveTranscript={handleSaveTranscript} />
+                <ConferencePanel onSaveTranscript={handleSaveTranscript} hosted={hosted} />
               </div>
               <div className="seam-border glow-border rounded-lg p-4">
                 <MemoryPanel

@@ -5,9 +5,10 @@ import { useState, useEffect } from "react";
 interface SettingsDrawerProps {
   open: boolean;
   onClose: () => void;
+  hosted?: boolean;
 }
 
-const PROVIDERS = [
+const ALL_PROVIDERS = [
   { id: "anthropic", label: "Anthropic", placeholder: "sk-ant-…" },
   { id: "openai", label: "OpenAI", placeholder: "sk-…" },
   { id: "xai", label: "xAI (Grok)", placeholder: "xai-…" },
@@ -21,8 +22,13 @@ export function getStoredKey(providerId: string): string {
   return localStorage.getItem(`${STORAGE_KEY_PREFIX}${providerId}`) ?? "";
 }
 
-export default function SettingsDrawer({ open, onClose }: SettingsDrawerProps) {
+export default function SettingsDrawer({ open, onClose, hosted = false }: SettingsDrawerProps) {
   const [keys, setKeys] = useState<Record<string, string>>({});
+
+  // Filter out the Local provider in hosted mode.
+  const PROVIDERS = hosted
+    ? ALL_PROVIDERS.filter((p) => p.id !== "local")
+    : ALL_PROVIDERS;
 
   useEffect(() => {
     if (open) {
