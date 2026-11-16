@@ -1,0 +1,23 @@
+# Dependencies
+node_modules/
+
+# Next.js
+.next/
+out/
+
+# Runtime data (memory store)
+data/
+
+# Environment files with real values
+.env*.local
+.env.production
+
+# TypeScript build info
+*.tsbuildinfo
+next-env.d.ts
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Note: .kiro/ is intentionally NOT ignored — steering docs and specs are project artifacts

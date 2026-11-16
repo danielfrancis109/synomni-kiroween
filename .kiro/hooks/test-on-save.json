@@ -1,0 +1,16 @@
+{
+  "version": "v1",
+  "hooks": [
+    {
+      "name": "Run Vitest on lib/cli/test save",
+      "trigger": "PostFileSave",
+      "description": "Runs vitest quietly after saving any src/lib, cli, or tests .ts file",
+      "matcher": "(src/lib|cli|tests)/.*\\.ts$",
+      "action": {
+        "type": "command",
+        "command": "cd /workspace/synomni-kiroween && npx vitest run --passWithNoTests 2>&1 | tail -20",
+        "timeout": 120
+      }
+    }
+  ]
+}

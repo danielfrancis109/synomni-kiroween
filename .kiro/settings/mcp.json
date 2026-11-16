@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "synomni-chamber-memory": {
+      "command": "npx",
+      "args": ["tsx", "cli/mcp.ts"],
+      "env": {}
+    }
+  }
+}
