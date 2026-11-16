@@ -588,3 +588,24 @@ describe("DemoProvider — PASS in conference", () => {
     expect(r).toContain("Prof. Stitch");
   });
 });
+
+describe("DemoProvider — critique talks about the thread's topic", () => {
+  it("uses keywords from the original prompt in the column's thread", async () => {
+    const demo = new DemoProvider();
+    const r = await demo.complete(
+      [
+        { role: "user", content: "How do volcanoes form under the ocean?" },
+        { role: "assistant", content: "[Demo · Scientist] Magma rises through vents." },
+        {
+          role: "user",
+          content:
+            "Critique and expand on this answer from Column A:\n\n[Demo · Generalist] There is a useful tension between volcanoes and simplicity.",
+        },
+      ],
+      { model: "demo-scientist" }
+    );
+    expect(r).toContain("Critique of Column A's answer");
+    expect(r).toMatch(/Strength: .*volcanoes/);
+    expect(r).not.toMatch(/\[Demo · Generalist\]/);
+  });
+});

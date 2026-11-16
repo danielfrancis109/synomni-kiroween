@@ -325,7 +325,15 @@ export class DemoProvider implements Provider {
       const quotedAnswer = critiqueMatch[2]!.trim().replace(/^\[Demo[^\]]*\]\s*/i, "");
       const openingWords = quotedAnswer.split(/[.!?]/)[0]?.trim() ?? quotedAnswer.slice(0, 60);
 
-      const keywords = extractKeywords(quotedAnswer, 3);
+      // Talk about the user's topic (earlier prompts in this thread), not the
+      // template words of the forwarded answer.
+      const threadPrompts = messages
+        .filter((m) => m.role === "user" && m !== lastUser && !/^Critique and expand/i.test(m.content))
+        .map((m) => m.content)
+        .join(" ");
+      const keywords = [...extractKeywords(threadPrompts, 3), ...extractKeywords(quotedAnswer, 6)]
+        .filter((k, i, all) => all.indexOf(k) === i)
+        .slice(0, 3);
       const kw = (i: number) => keywords[i] ?? (["concept", "argument", "point"][i] ?? "topic");
 
       const seed = hashString(lastUserContent + (opts.model ?? ""));
