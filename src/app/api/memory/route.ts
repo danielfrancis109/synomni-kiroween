@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { securityHeaders, SaveNoteSchema, redactKeys } from "@/lib/security";
-import { saveNote, listNotes, searchNotes, NoteNotFoundError } from "@/lib/memory";
+import { saveNote, listNotes, searchNotes } from "@/lib/memory";
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const headers = securityHeaders();
@@ -9,7 +9,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const q = req.nextUrl.searchParams.get("q");
     if (q && q.trim()) {
       const results = searchNotes(q);
-      return NextResponse.json({ results }, { headers });
+      // Normalize to same shape as list: extract note from SearchResult
+      const notes = results.map((r) => r.note);
+      return NextResponse.json({ notes }, { headers });
     }
     const notes = listNotes();
     return NextResponse.json({ notes }, { headers });
@@ -42,7 +44,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: parsed.error.errors[0]?.message ?? "Invalid request",
+          message: parsed.error.issues[0]?.message ?? "Invalid request",
         },
       },
       { status: 400, headers }

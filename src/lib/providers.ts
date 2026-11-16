@@ -1,4 +1,4 @@
-import { validateLocalUrl } from "./security.js";
+import { validateLocalUrl } from "./security";
 
 // ---------------------------------------------------------------------------
 // Shared types

@@ -8,7 +8,7 @@
       "matcher": "(src/lib|cli|tests)/.*\\.ts$",
       "action": {
         "type": "command",
-        "command": "cd /workspace/synomni-kiroween && npx vitest run --passWithNoTests 2>&1 | tail -20",
+        "command": "npx vitest run --passWithNoTests 2>&1 | tail -20",
         "timeout": 120
       }
     }

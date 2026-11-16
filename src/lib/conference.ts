@@ -1,4 +1,4 @@
-import type { ProviderId } from "./providers.js";
+import type { ProviderId } from "./providers";
 
 // ---------------------------------------------------------------------------
 // Types

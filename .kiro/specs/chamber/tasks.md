@@ -55,11 +55,11 @@ Tasks are ordered so the repo is runnable after Task 2 and incrementally richer 
 ## Task 6 — UI: Compare, Conference, Memory panels + Settings
 *The full one-screen workspace is functional with the Demo provider.*
 
-- [ ] 6.1 Create `src/components/SettingsDrawer.tsx`: slide-in drawer; one password input per provider; Save writes to `localStorage`; Clear removes all keys. (R1.4, product.md)
-- [ ] 6.2 Create `src/components/ComparePanel.tsx`: two columns, each with provider+model picker; shared prompt input; concurrent submit; "Forward to other model" button with critique prefix; per-column error display; follow-up input. (R2.1–R2.5)
-- [ ] 6.3 Create `src/components/ConferencePanel.tsx`: agent config (2–3 agents, name/provider/model/persona); policy picker; Start/Stop; shared transcript; max-turn display; "Save transcript" button. (R3.1–R3.8)
-- [ ] 6.4 Create `src/components/MemoryPanel.tsx`: note list (title + date), keyword search input, "Save answer" action that opens a title prompt; calls `/api/memory`. (R4.7)
-- [ ] 6.5 Assemble `src/app/chamber/page.tsx`: lay out all three panels with the laboratory theme (electric-green accents, `bg-[#0d0d0d]`, seam borders, monospace transcripts); responsive (single column on mobile, side-by-side on ≥1024 px). (product.md, R2.1, R3.1, R4.7)
+- [x] 6.1 Create `src/components/SettingsDrawer.tsx`: slide-in drawer; one password input per provider; Save writes to `localStorage`; Clear removes all keys. (R1.4, product.md)
+- [x] 6.2 Create `src/components/ComparePanel.tsx`: two columns, each with provider+model picker; shared prompt input; concurrent submit; "Forward to other model" button with critique prefix; per-column error display; follow-up input. (R2.1–R2.5)
+- [x] 6.3 Create `src/components/ConferencePanel.tsx`: agent config (2–3 agents, name/provider/model/persona); policy picker; Start/Stop; shared transcript; max-turn display; "Save transcript" button. (R3.1–R3.8)
+- [x] 6.4 Create `src/components/MemoryPanel.tsx`: note list (title + date), keyword search input, "Save answer" action that opens a title prompt; calls `/api/memory`. (R4.7)
+- [x] 6.5 Assemble `src/app/chamber/page.tsx`: lay out all three panels with the laboratory theme (electric-green accents, `bg-[#0d0d0d]`, seam borders, monospace transcripts); responsive (single column on mobile, side-by-side on ≥1024 px). (product.md, R2.1, R3.1, R4.7)
 
 ---
 
@@ -70,15 +70,15 @@ Tasks are ordered so the repo is runnable after Task 2 and incrementally richer 
 - [x] 7.2 Create `tests/conference.test.ts`: round-robin advances correctly; open-floor follows name nomination; PASS skips agent and records reason; max-turn throws `ConferenceCompleteError`; agent never self-replies consecutively; `isComplete` returns true when all pass in a round. (R6.1, R3.4–R3.7)
 - [x] 7.3 Create `tests/memory.test.ts`: save → retrieve round-trip on a temp file; list excludes deleted notes; search returns higher score for more occurrences; concurrent saves do not corrupt the file. (R6.1, R4.2)
 - [x] 7.4 Create `tests/mcp.test.ts`: each tool handler returns correct MCP `content` shape; `retrieve_context` merges Synomni result when token provided (mock HTTP); validates bad args and returns MCP error. (R6.1, R4.4–R4.6)
-- [ ] 7.5 Create `e2e/smoke.test.ts`: navigate to `/chamber`; set both columns to Demo; submit a prompt; assert both columns show a response; click Forward on column A; assert column B shows the forwarded message; configure 2 Demo agents; start conference; wait for max-turns notice; click Save transcript; assert note appears in Memory panel. (R6.2)
+- [x] 7.5 Create `e2e/smoke.test.ts`: navigate to `/chamber`; set both columns to Demo; submit a prompt; assert both columns show a response; click Forward on column A; assert column B shows the forwarded message; configure 2 Demo agents; start conference; wait for max-turns notice; click Save transcript; assert note appears in Memory panel. (R6.2)
 
 ---
 
 ## Task 8 — Docs, polish, final checks
 *The repo is presentable and all commands work from a clean checkout.*
 
-- [ ] 8.1 Write final `README.md`: overview, clone-and-run (`npm ci`, `npm run dev`, `npm test`, `npm run test:e2e`), env var table, MCP server usage (`node cli/mcp.ts`), Kiroween disclosure blurb. (R7.1, R7.3)
-- [ ] 8.2 Verify `.gitignore` excludes `data/` and `node_modules/` but not `.kiro/`; confirm `data/` directory is not committed. (security.md)
-- [ ] 8.3 Run `npm run build` and fix any TypeScript or lint errors surfaced by the production build. (tech.md)
-- [ ] 8.4 Run `npm test` and `npm run test:e2e`; fix any failures. (R6.3, R6.4)
-- [ ] 8.5 Audit all route handlers: confirm `securityHeaders()` applied, zod validation present, no key material in any log call, stack traces gated on `NODE_ENV`. (R5.7–R5.9)
+- [x] 8.1 Write final `README.md`: overview, clone-and-run (`npm ci`, `npm run dev`, `npm test`, `npm run test:e2e`), env var table, MCP server usage (`node cli/mcp.ts`), Kiroween disclosure blurb. (R7.1, R7.3)
+- [x] 8.2 Verify `.gitignore` excludes `data/` and `node_modules/` but not `.kiro/`; confirm `data/` directory is not committed. (security.md)
+- [x] 8.3 Run `npm run build` and fix any TypeScript or lint errors surfaced by the production build. (tech.md)
+- [x] 8.4 Run `npm test` and `npm run test:e2e`; fix any failures. (R6.3, R6.4)
+- [x] 8.5 Audit all route handlers: confirm `securityHeaders()` applied, zod validation present, no key material in any log call, stack traces gated on `NODE_ENV`. (R5.7–R5.9)

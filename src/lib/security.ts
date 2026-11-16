@@ -58,23 +58,46 @@ export class SSRFError extends Error {
 }
 
 const PRIVATE_IP_PATTERNS = [
+  // IPv4 loopback
   /^127\./,
+  // IPv4 private ranges
   /^10\./,
   /^172\.(1[6-9]|2\d|3[01])\./,
   /^192\.168\./,
+  // CGNAT / shared address space (RFC 6598)
+  /^100\.(6[4-9]|[7-9]\d|1[01]\d|12[0-7])\./,
+  // Link-local (RFC 3927) — cloud metadata (169.254.x.x)
+  /^169\.254\./,
+  // "This" network (RFC 1122)
+  /^0\./,
+  // IPv6 loopback
   /^::1$/,
+  // IPv6 unspecified
+  /^\[::\]$/,
+  /^::$/,
+  // IPv6 private / link-local
   /^fc00:/i,
   /^fe80:/i,
+  // IPv4-mapped IPv6 (::ffff:...)
+  /^::ffff:/i,
+  /^0000:0000:0000:0000:0000:ffff:/i,
+  // Explicit 0.0.0.0
   /^0\.0\.0\.0$/,
+  // localhost hostname
   /^localhost$/i,
 ];
 
 function isPrivateOrLoopback(hostname: string): boolean {
+  // Unwrap IPv6 bracket notation: [::1] → ::1
+  const h = hostname.startsWith("[") && hostname.endsWith("]")
+    ? hostname.slice(1, -1)
+    : hostname;
+
   for (const pattern of PRIVATE_IP_PATTERNS) {
-    if (pattern.test(hostname)) return true;
+    if (pattern.test(h)) return true;
   }
   // bare hostname without TLD (no dots and not an IP-like string)
-  if (!hostname.includes(".") && !hostname.includes(":")) return true;
+  if (!h.includes(".") && !h.includes(":")) return true;
   return false;
 }
 

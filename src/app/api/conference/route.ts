@@ -35,7 +35,7 @@ const ConferenceStateSchema = z.object({
 
 const ConferenceRequestSchema = z.object({
   state: ConferenceStateSchema,
-  apiKeys: z.record(z.string()).optional(),
+  apiKeys: z.record(z.string(), z.string()).optional(),
 });
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
@@ -57,15 +57,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: parsed.error.errors[0]?.message ?? "Invalid request",
+          message: parsed.error.issues[0]?.message ?? "Invalid request",
         },
       },
       { status: 400, headers }
     );
   }
 
-  const { state, apiKeys } = parsed.data;
-  const typedState = state as ConferenceState;
+  const { state, apiKeys } = parsed.data as {
+    state: ConferenceState;
+    apiKeys?: Record<string, string>;
+  };
+  const typedState = state;
 
   let agentIdx: number;
   try {

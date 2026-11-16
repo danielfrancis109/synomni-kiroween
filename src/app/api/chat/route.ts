@@ -31,7 +31,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       {
         error: {
           code: "VALIDATION_ERROR",
-          message: parsed.error.errors[0]?.message ?? "Invalid request",
+          message: parsed.error.issues[0]?.message ?? "Invalid request",
         },
       },
       { status: 400, headers }
