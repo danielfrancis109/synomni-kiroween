@@ -1,24 +1,100 @@
 @import "tailwindcss";
 
-:root {
-  --accent: #39ff14;
-  --bg: #0d0d0d;
+/* ── Tailwind v4 theme tokens ───────────────────────────────────────────── */
+@theme {
+  --color-lab-black: #0b0d0c;
+  --color-lab-dark: #111312;
+  --color-lab-panel: #0f1110;
+  --color-lab-card: #080a09;
+  --color-neon-green: #39ff14;
+  --color-neon-dim: #25b30d;
+  --color-neon-glow: rgba(57, 255, 20, 0.15);
+
+  --font-family-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+
+  --shadow-glow: 0 0 12px rgba(57, 255, 20, 0.25),
+    0 0 24px rgba(57, 255, 20, 0.1);
+  --shadow-glow-sm: 0 0 6px rgba(57, 255, 20, 0.2);
+}
+
+/* ── Base styles ────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: dark;
 }
 
 body {
-  background-color: var(--bg);
-  color: #e0e0e0;
-  font-family: ui-monospace, SFMono-Regular, monospace;
+  background-color: #0b0d0c;
+  color: #d4d8d5;
+  font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+    "Liberation Mono", monospace;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
 }
 
-/* Stitched-seam border motif */
+/* ── Focus rings ────────────────────────────────────────────────────────── */
+:focus-visible {
+  outline: 2px solid #39ff14;
+  outline-offset: 2px;
+}
+
+/* ── Stitched-seam border motif ─────────────────────────────────────────── */
 .seam-border {
-  border: 2px solid var(--accent);
+  border: 1px dashed rgba(57, 255, 20, 0.35);
+  background-color: #0f1110;
   background-image: repeating-linear-gradient(
     45deg,
     transparent,
-    transparent 4px,
-    rgba(57, 255, 20, 0.08) 4px,
-    rgba(57, 255, 20, 0.08) 8px
+    transparent 6px,
+    rgba(57, 255, 20, 0.03) 6px,
+    rgba(57, 255, 20, 0.03) 12px
   );
+}
+
+/* ── Neon glow helpers ──────────────────────────────────────────────────── */
+.glow-text {
+  text-shadow: 0 0 8px rgba(57, 255, 20, 0.6), 0 0 20px rgba(57, 255, 20, 0.3);
+}
+
+.glow-border {
+  box-shadow: 0 0 10px rgba(57, 255, 20, 0.2), inset 0 0 10px rgba(57, 255, 20, 0.04);
+}
+
+/* ── Scrollbar styling ──────────────────────────────────────────────────── */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+::-webkit-scrollbar-track {
+  background: #0b0d0c;
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(57, 255, 20, 0.3);
+  border-radius: 2px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(57, 255, 20, 0.5);
+}
+
+/* ── Selection ──────────────────────────────────────────────────────────── */
+::selection {
+  background: rgba(57, 255, 20, 0.2);
+  color: #39ff14;
+}
+
+/* ── Transition baseline ────────────────────────────────────────────────── */
+button,
+select,
+input,
+textarea {
+  transition-property: border-color, background-color, box-shadow, color,
+    opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
 }

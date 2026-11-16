@@ -1,24 +1,5 @@
-import type { Config } from "tailwindcss";
+// Tailwind v4: configuration is handled via CSS @theme in globals.css.
+// This file is kept as a placeholder so any tooling that expects it doesn't break.
+// See: https://tailwindcss.com/docs/v4-upgrade
 
-const config: Config = {
-  darkMode: "class",
-  content: [
-    "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
-    "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
-  theme: {
-    extend: {
-      colors: {
-        "neon-green": "#39ff14",
-        "lab-black": "#0d0d0d",
-      },
-      fontFamily: {
-        mono: ["var(--font-mono)", "ui-monospace", "SFMono-Regular", "monospace"],
-      },
-    },
-  },
-  plugins: [],
-};
-
-export default config;
+export default {};
