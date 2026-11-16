@@ -68,7 +68,7 @@ describe("round-robin policy", () => {
         makeTurn("agent-2"),
       ],
     });
-    // Last speaker was agent-2 (idx 2), next is (2+1)%3 = 0
+    // Last turn was agent-2 (idx 2), next is (2+1)%3 = 0
     expect(nextAgentIndex(s)).toBe(0);
   });
 
@@ -80,6 +80,36 @@ describe("round-robin policy", () => {
 
     const s1 = state({ agents, transcript: [makeTurn("agent-0"), makeTurn("agent-1")] });
     expect(nextAgentIndex(s1)).toBe(0);
+  });
+
+  // 10.7: round-robin advances from the MOST RECENT turn (PASS included),
+  // so a PASS hands the floor to the next agent in sequence.
+  it("advances from PASS turn — PASS hands floor to next agent (10.7)", () => {
+    const agents = makeAgents(3);
+    // agent-0 spoke, then agent-1 PASSed
+    // The most recent turn is agent-1 (PASS); next should be (1+1)%3 = 2
+    const s = state({
+      agents,
+      transcript: [
+        makeTurn("agent-0"),
+        makePassTurn("agent-1"),
+      ],
+    });
+    expect(nextAgentIndex(s)).toBe(2);
+  });
+
+  it("PASS by agent-2 advances to agent-0 (wraps around, 10.7)", () => {
+    const agents = makeAgents(3);
+    const s = state({
+      agents,
+      transcript: [
+        makeTurn("agent-0"),
+        makeTurn("agent-1"),
+        makePassTurn("agent-2"),
+      ],
+    });
+    // Most recent turn is agent-2 (PASS, idx 2), next = (2+1)%3 = 0
+    expect(nextAgentIndex(s)).toBe(0);
   });
 });
 
@@ -106,7 +136,7 @@ describe("open-floor policy", () => {
       policy: "open-floor",
       transcript: [makeTurn("agent-0", "No specific nomination here.")],
     });
-    // Falls back: last speaker was agent-0 (idx 0), next = (0+1)%3 = 1
+    // Falls back: last (recent) turn was agent-0 (idx 0), next = (0+1)%3 = 1
     expect(nextAgentIndex(s)).toBe(1);
   });
 
@@ -118,7 +148,7 @@ describe("open-floor policy", () => {
       policy: "open-floor",
       transcript: [makeTurn("agent-0", "I, Agent0, think...")],
     });
-    // Self-nomination falls back; last idx=0, next = 1
+    // Self-nomination falls back; last recent idx=0, next = 1
     expect(nextAgentIndex(s)).toBe(1);
   });
 });
@@ -128,9 +158,9 @@ describe("open-floor policy", () => {
 // ---------------------------------------------------------------------------
 
 describe("PASS turns", () => {
-  it("skips PASS turns when finding last speaker", () => {
+  it("PASS hands floor to the next agent in round-robin order (10.7)", () => {
     const agents = makeAgents(3);
-    // agent-0 spoke, then agent-1 PASSed
+    // agent-0 spoke, then agent-1 PASSed → next is agent-2 (idx 2)
     const s = state({
       agents,
       transcript: [
@@ -138,8 +168,7 @@ describe("PASS turns", () => {
         makePassTurn("agent-1"),
       ],
     });
-    // Last non-PASS speaker was agent-0 (idx 0), next = 1
-    expect(nextAgentIndex(s)).toBe(1);
+    expect(nextAgentIndex(s)).toBe(2);
   });
 
   it("throws ConferenceCompleteError when all agents pass in one round", () => {

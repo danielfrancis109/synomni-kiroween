@@ -27,6 +27,8 @@ export interface ConferenceState {
   transcript: Turn[];
   policy: TurnPolicy;
   maxTurns: number;
+  /** Optional discussion topic (max 500 chars). Passed to agents in the prompt. */
+  topic?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -43,6 +45,13 @@ export class ConferenceCompleteError extends Error {
 // ---------------------------------------------------------------------------
 // Pure turn-policy helpers
 // ---------------------------------------------------------------------------
+
+/** Index of the agent that produced the most recent turn (including PASS), or -1. */
+function lastTurnAgentIndex(state: ConferenceState): number {
+  const last = state.transcript[state.transcript.length - 1];
+  if (!last) return -1;
+  return state.agents.findIndex((a) => a.id === last.agentId);
+}
 
 /** Index of the agent that produced the most recent non-PASS turn, or -1. */
 function lastSpeakerIndex(state: ConferenceState): number {
@@ -78,18 +87,17 @@ export function nextAgentIndex(state: ConferenceState): number {
     throw new ConferenceCompleteError("All agents passed in the last round");
   }
 
-  const lastIdx = lastSpeakerIndex(state);
-
   if (policy === "round-robin") {
-    // Start at index 0 if no one has spoken yet
-    if (lastIdx === -1) return 0;
-    // Advance and skip the last speaker to prevent self-reply
+    // For round-robin, advance from the agent of the most recent turn (PASS included).
+    // This ensures a PASS hands the floor to the next agent, not back to the passer.
+    const recentIdx = lastTurnAgentIndex(state);
+    if (recentIdx === -1) return 0;
+    // Advance and skip the most-recent agent to prevent self-reply
     for (let offset = 1; offset <= agents.length; offset++) {
-      const candidate = (lastIdx + offset) % agents.length;
-      if (candidate !== lastIdx) return candidate;
+      const candidate = (recentIdx + offset) % agents.length;
+      if (candidate !== recentIdx) return candidate;
     }
-    // Fallback (should never reach here with 2+ agents)
-    return (lastIdx + 1) % agents.length;
+    return (recentIdx + 1) % agents.length;
   }
 
   // open-floor: scan last non-PASS content for a name nomination
@@ -114,14 +122,16 @@ export function nextAgentIndex(state: ConferenceState): number {
       if (nominated !== -1) return nominated;
     }
 
-    // Fall back to round-robin
-    if (lastIdx === -1) return 0;
-    return (lastIdx + 1) % agents.length;
+    // Fall back to round-robin based on most recent turn (PASS included)
+    const recentIdx = lastTurnAgentIndex(state);
+    if (recentIdx === -1) return 0;
+    return (recentIdx + 1) % agents.length;
   }
 
   // Default fallback
-  if (lastIdx === -1) return 0;
-  return (lastIdx + 1) % agents.length;
+  const recentIdx = lastTurnAgentIndex(state);
+  if (recentIdx === -1) return 0;
+  return (recentIdx + 1) % agents.length;
 }
 
 /**

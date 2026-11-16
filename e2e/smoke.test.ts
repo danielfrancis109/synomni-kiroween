@@ -25,8 +25,8 @@ test.describe("Synomni Chamber smoke test (Demo provider)", () => {
     await page.locator('[data-testid="compare-submit"]').click();
 
     // Both columns should show non-empty, non-error responses
-    await expect(page.locator('[data-testid="col-0-response"]')).not.toContainText("No response yet", { timeout: 20_000 });
-    await expect(page.locator('[data-testid="col-1-response"]')).not.toContainText("No response yet", { timeout: 20_000 });
+    await expect(page.locator('[data-testid="col-0-response"] [data-role="assistant"]')).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.locator('[data-testid="col-1-response"] [data-role="assistant"]')).toHaveCount(1, { timeout: 20_000 });
 
     const col0Text = await page.locator('[data-testid="col-0-response"]').textContent();
     const col1Text = await page.locator('[data-testid="col-1-response"]').textContent();
@@ -38,13 +38,13 @@ test.describe("Synomni Chamber smoke test (Demo provider)", () => {
     // Submit a prompt first
     await page.locator('[data-testid="compare-prompt"]').fill("Describe a black hole briefly.");
     await page.locator('[data-testid="compare-submit"]').click();
-    await expect(page.locator('[data-testid="col-0-response"]')).not.toContainText("No response yet", { timeout: 20_000 });
+    await expect(page.locator('[data-testid="col-0-response"] [data-role="assistant"]')).toHaveCount(1, { timeout: 20_000 });
 
     // Click Forward on column 0
     await page.locator('[data-testid="col-0-forward"]').click();
 
-    // Column 1 should update with a new response (the forwarded critique)
-    await expect(page.locator('[data-testid="col-1-response"]')).not.toContainText("No response yet", { timeout: 20_000 });
+    // Column 1 should gain a new response (the forwarded critique)
+    await expect(page.locator('[data-testid="col-1-response"] [data-role="assistant"]')).toHaveCount(2, { timeout: 20_000 });
     const col1Text = await page.locator('[data-testid="col-1-response"]').textContent();
     expect(col1Text?.trim().length).toBeGreaterThan(5);
   });
@@ -96,5 +96,94 @@ test.describe("Synomni Chamber smoke test (Demo provider)", () => {
     await page.locator('[data-testid="note-save-btn"]').click();
 
     await expect(page.locator('[data-testid="memory-note-list"]')).toContainText("Test note from e2e", { timeout: 10_000 });
+  });
+
+  // -------------------------------------------------------------------------
+  // Task 10: demo mode that holds up on camera
+  // -------------------------------------------------------------------------
+
+  test("Compare (demo): distinct answers, follow-up adds a message, forward shows a critique", async ({ page }) => {
+    const col0 = page.locator('[data-testid="col-0-response"] [data-role="assistant"]');
+    const col1 = page.locator('[data-testid="col-1-response"] [data-role="assistant"]');
+
+    // Distinct personas by default
+    await expect(page.locator('[data-testid="col-0-model"]')).toHaveValue("demo", { timeout: 10_000 });
+    await expect(page.locator('[data-testid="col-1-model"]')).toHaveValue("demo-scientist");
+
+    await page.locator('[data-testid="compare-prompt"]').fill("How do volcanoes form under the ocean?");
+    await page.locator('[data-testid="compare-submit"]').click();
+    await expect(col0).toHaveCount(1, { timeout: 20_000 });
+    await expect(col1).toHaveCount(1, { timeout: 20_000 });
+
+    const a1 = (await col0.nth(0).textContent())!.trim();
+    const b1 = (await col1.nth(0).textContent())!.trim();
+    expect(a1).toMatch(/^\[Demo · /);
+    expect(b1).toMatch(/^\[Demo · Scientist\]/);
+    expect(a1).not.toBe(b1);
+    expect(a1.toLowerCase()).toContain("volcanoes");
+    expect(a1).not.toContain("Great question! Empirical observation");
+
+    // Follow-up in column A: a second assistant message that references the first
+    await page.locator('[data-testid="col-0-followup"]').fill("Make it harder");
+    await page.locator('[data-testid="col-0-followup-send"]').click();
+    await expect(col0).toHaveCount(2, { timeout: 20_000 });
+    const a2 = (await col0.nth(1).textContent())!.trim();
+    expect(a2).not.toBe(a1);
+    const a1Opening = a1.replace(/^\[Demo[^\]]*\]\s*/, "").split(/[.!?]/)[0]!.trim();
+    expect(a2).toContain(a1Opening);
+    await expect(page.locator('[data-testid="col-0-response"] [data-role="user"]').last()).toContainText("Make it harder");
+
+    // Forward A -> B: B shows a critique quoting A's latest answer
+    await page.locator('[data-testid="col-0-forward"]').click();
+    await expect(col1).toHaveCount(2, { timeout: 20_000 });
+    const critique = (await col1.nth(1).textContent())!;
+    expect(critique).toContain("Critique of Column A's answer");
+    const a2Opening = a2.replace(/^\[Demo[^\]]*\]\s*/, "").split(/[.!?]/)[0]!.trim();
+    expect(critique).toContain(a2Opening.slice(0, 30));
+    await expect(page.locator('[data-testid="col-1-response"]')).toContainText("Forwarded from Column A");
+  });
+
+  test("Compare (demo): different prompts give different answers", async ({ page }) => {
+    const col0 = page.locator('[data-testid="col-0-response"] [data-role="assistant"]');
+    await page.locator('[data-testid="compare-prompt"]').fill("Why is the sky blue?");
+    await page.locator('[data-testid="compare-submit"]').click();
+    await expect(col0).toHaveCount(1, { timeout: 20_000 });
+    await expect(page.locator('[data-testid="compare-submit"]')).toBeDisabled();
+    await page.locator('[data-testid="compare-prompt"]').fill("Best way to learn the violin as an adult");
+    await page.locator('[data-testid="compare-submit"]').click();
+    await expect(col0).toHaveCount(2, { timeout: 20_000 });
+    expect((await col0.nth(0).textContent())!.trim()).not.toBe((await col0.nth(1).textContent())!.trim());
+  });
+
+  test("Conference (demo): 3 agents, round-robin, 6 turns shows varied lines and a PASS badge with reason", async ({ page }) => {
+    await page.locator('[data-testid="add-agent"]').click();
+    await expect(page.locator('[data-testid="agent-config-2"]')).toBeVisible();
+    await page.locator('[data-testid="conf-topic"]').fill("Is determinism compatible with free will?");
+    await page.locator('[data-testid="conf-max-turns"]').fill("6");
+    await page.locator('[data-testid="conf-start"]').click();
+    await expect(page.locator('[data-testid="conf-complete"]')).toBeVisible({ timeout: 60_000 });
+
+    // PASS badge and its reason render
+    const badges = page.locator('[data-testid$="-pass"]');
+    expect(await badges.count()).toBeGreaterThanOrEqual(1);
+    await expect(badges.first()).toBeVisible();
+    await expect(badges.first()).toContainText("PASS");
+    const reason = page.locator('[data-testid$="-pass-reason"]').first();
+    await expect(reason).toBeVisible();
+    await expect(reason).toContainText("Nothing new to add");
+
+    // Spoken lines vary (no repeats)
+    const turns = page.locator('[data-testid^="turn-"]:not([data-testid$="-pass"]):not([data-testid$="-pass-reason"])');
+    const n = await turns.count();
+    expect(n).toBeGreaterThanOrEqual(3);
+    const spoken: string[] = [];
+    for (let i = 0; i < n; i++) {
+      const t = turns.nth(i);
+      if ((await t.locator('[data-testid$="-pass"]').count()) === 0) {
+        spoken.push((await t.locator("p").textContent())!.trim());
+      }
+    }
+    expect(spoken.length).toBeGreaterThanOrEqual(3);
+    expect(new Set(spoken).size).toBe(spoken.length);
   });
 });

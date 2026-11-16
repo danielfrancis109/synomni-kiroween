@@ -34,6 +34,7 @@ const ConferenceStateSchema = z.object({
   transcript: z.array(TurnSchema),
   policy: z.enum(["round-robin", "open-floor"]),
   maxTurns: z.number().int().positive(),
+  topic: z.string().max(500).optional(),
 });
 
 const ConferenceRequestSchema = z.object({
@@ -142,20 +143,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   // Build transcript messages for this agent's context
-  const systemMsg = agent.persona
-    ? [{ role: "system" as const, content: agent.persona }]
-    : [];
+  const passRule =
+    'If you have nothing new to add, reply exactly "PASS: <one-line reason>" instead of speaking.';
+  const systemMsg = [
+    {
+      role: "system" as const,
+      content: `You are ${agent.name} in a moderated conference.${agent.persona ? ` ${agent.persona}` : ""} ${passRule}`,
+    },
+  ];
   const transcriptMsgs = typedState.transcript.map((t) => {
     const speaker = typedState.agents.find((a) => a.id === t.agentId);
     return {
       role: "user" as const,
-      content: `${speaker?.name ?? "Unknown"}: ${t.content}`,
+      content: t.pass
+        ? `${speaker?.name ?? "Unknown"}: PASS — ${t.passReason ?? "nothing to add"}`
+        : `${speaker?.name ?? "Unknown"}: ${t.content}`,
     };
   });
-  const messages = [...systemMsg, ...transcriptMsgs, { role: "user" as const, content: "Your turn." }];
+
+  // Build the final user turn: include topic if set, then "Your turn, <Name>."
+  const topicPrefix = typedState.topic
+    ? `Topic: ${typedState.topic}\n\n`
+    : "";
+  const yourTurn = `${topicPrefix}Your turn, ${agent.name}.`;
+
+  const messages = [...systemMsg, ...transcriptMsgs, { role: "user" as const, content: yourTurn }];
 
   try {
-    const content = await provider.complete(messages, {
+    const rawContent = await provider.complete(messages, {
       model: agent.model,
       apiKey,
       // In hosted mode, never use a client-supplied baseUrl.
@@ -163,10 +178,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       timeoutMs: Number(process.env.PROVIDER_TIMEOUT_MS ?? 30000),
     });
 
+    // Parse PASS: <reason> replies (10.5)
+    const passMatch = rawContent.match(/^PASS:\s*(.+)/is);
+    const isPass = passMatch !== null;
+    const passReason = passMatch ? passMatch[1]!.trim().slice(0, 300) : undefined;
+
     const turn: Turn = {
       agentId: agent.id,
-      content,
-      pass: false,
+      content: isPass ? "" : rawContent,
+      pass: isPass,
+      passReason,
       timestamp: Date.now(),
     };
 

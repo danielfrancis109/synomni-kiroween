@@ -23,6 +23,7 @@ interface ConferenceState {
   transcript: Turn[];
   policy: "round-robin" | "open-floor";
   maxTurns: number;
+  topic?: string;
 }
 
 const ALL_PROVIDERS = [
@@ -130,6 +131,7 @@ export default function ConferencePanel({
       transcript: [],
       policy,
       maxTurns,
+      topic: topic.trim() || undefined,
     };
 
     try {
@@ -194,7 +196,9 @@ export default function ConferencePanel({
     const lines = transcript.map((t) => {
       const agentName =
         agents.find((a) => a.id === t.agentId)?.name ?? t.agentId;
-      return `[${agentName}]: ${t.content}`;
+      return t.pass
+        ? `[${agentName}]: PASS — ${t.passReason ?? "nothing to add"}`
+        : `[${agentName}]: ${t.content}`;
     });
     onSaveTranscript(`Conference on "${topic}"\n\n${lines.join("\n\n")}`);
   }
@@ -595,6 +599,7 @@ export default function ConferencePanel({
                   {/* PASS badge */}
                   {turn.pass && (
                     <span
+                      data-testid={`turn-${i}-pass`}
                       className="inline-flex items-center gap-1 text-xs px-1.5 py-0.5 rounded border"
                       style={{
                         borderColor: "rgba(251,191,36,0.4)",
@@ -605,7 +610,7 @@ export default function ConferencePanel({
                     >
                       PASS
                       {turn.passReason && (
-                        <span style={{ color: "rgba(251,191,36,0.6)" }}>
+                        <span data-testid={`turn-${i}-pass-reason`} style={{ color: "rgba(251,191,36,0.6)" }}>
                           · {turn.passReason}
                         </span>
                       )}

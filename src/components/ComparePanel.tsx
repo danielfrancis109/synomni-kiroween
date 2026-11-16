@@ -2,18 +2,18 @@
 
 import { useState } from "react";
 
-interface CompareColumn {
-  providerId: string;
-  model: string;
-  response: string;
-  error: string;
-  loading: boolean;
-  followUp: string;
-}
-
 interface Message {
   role: "user" | "assistant";
   content: string;
+  forwarded?: boolean; // true when this user message is a forwarded-from bubble
+}
+
+interface CompareColumn {
+  providerId: string;
+  model: string;
+  error: string;
+  loading: boolean;
+  followUp: string;
 }
 
 const ALL_PROVIDERS = [
@@ -58,13 +58,16 @@ async function callProvider(
   const apiKey = getStoredKey(providerId);
   const baseUrl = providerId === "local" ? getStoredBaseUrl() : undefined;
 
+  // Strip the forwarded metadata before sending to the API — API expects plain role/content
+  const apiMessages = messages.map(({ role, content }) => ({ role, content }));
+
   const res = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       providerId,
       model,
-      messages,
+      messages: apiMessages,
       apiKey: apiKey || undefined,
       baseUrl,
     }),
@@ -77,14 +80,16 @@ async function callProvider(
   return data.content ?? "";
 }
 
-const defaultCol = (): CompareColumn => ({
-  providerId: "demo",
-  model: "demo",
-  response: "",
-  error: "",
-  loading: false,
-  followUp: "",
-});
+/** Default column state factory. */
+function defaultCol(model = "demo"): CompareColumn {
+  return {
+    providerId: "demo",
+    model,
+    error: "",
+    loading: false,
+    followUp: "",
+  };
+}
 
 const COL_LABELS = ["Column A", "Column B"] as const;
 const COL_COLORS = ["#39ff14", "#14e0ff"] as const;
@@ -93,11 +98,14 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
   const PROVIDERS = hosted
     ? ALL_PROVIDERS.filter((p) => p.id !== "local")
     : ALL_PROVIDERS;
+
+  // col-B defaults to demo-scientist (10.4)
   const [cols, setCols] = useState<[CompareColumn, CompareColumn]>([
-    defaultCol(),
-    defaultCol(),
+    defaultCol("demo"),
+    defaultCol("demo-scientist"),
   ]);
   const [prompt, setPrompt] = useState("");
+  // histories[idx] is the full message thread for column idx
   const [histories, setHistories] = useState<[Message[], Message[]]>([[], []]);
 
   function updateCol(idx: 0 | 1, patch: Partial<CompareColumn>) {
@@ -116,8 +124,8 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
       Message[],
     ];
     setHistories(newHistories);
-    updateCol(0, { loading: true, response: "", error: "" });
-    updateCol(1, { loading: true, response: "", error: "" });
+    updateCol(0, { loading: true, error: "" });
+    updateCol(1, { loading: true, error: "" });
 
     await Promise.all(
       ([0, 1] as const).map(async (idx) => {
@@ -133,7 +141,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
             next[idx] = [...prev[idx], assistantMsg];
             return next;
           });
-          updateCol(idx, { response: content, loading: false });
+          updateCol(idx, { loading: false });
         } catch (err) {
           updateCol(idx, {
             error: err instanceof Error ? err.message : "Error",
@@ -147,11 +155,19 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
 
   async function forward(fromIdx: 0 | 1) {
     const toIdx: 0 | 1 = fromIdx === 0 ? 1 : 0;
-    const sourceResponse = cols[fromIdx].response;
-    if (!sourceResponse) return;
+    // Find the most recent assistant message in fromIdx
+    const fromHistory = histories[fromIdx];
+    const sourceMsg = [...fromHistory].reverse().find((m) => m.role === "assistant");
+    if (!sourceMsg) return;
+
+    const sourceLabel = COL_LABELS[fromIdx];
+    const forwardedContent = `Critique and expand on this answer from ${sourceLabel}:\n\n${sourceMsg.content}`;
+
+    // Forwarded message is marked so the UI can render a "Forwarded from X" bubble
     const forwardMsg: Message = {
       role: "user",
-      content: `Critique and expand on this answer from another model:\n\n${sourceResponse}`,
+      content: forwardedContent,
+      forwarded: true,
     };
     const newHistory = [...histories[toIdx], forwardMsg] as Message[];
     setHistories((prev) => {
@@ -159,7 +175,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
       next[toIdx] = newHistory;
       return next;
     });
-    updateCol(toIdx, { loading: true, response: "", error: "" });
+    updateCol(toIdx, { loading: true, error: "" });
     try {
       const content = await callProvider(
         cols[toIdx].providerId,
@@ -172,7 +188,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
         next[toIdx] = [...prev[toIdx], assistantMsg];
         return next;
       });
-      updateCol(toIdx, { response: content, loading: false });
+      updateCol(toIdx, { loading: false });
     } catch (err) {
       updateCol(toIdx, {
         error: err instanceof Error ? err.message : "Error",
@@ -204,7 +220,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
         next[idx] = [...prev[idx], assistantMsg];
         return next;
       });
-      updateCol(idx, { response: content, loading: false });
+      updateCol(idx, { loading: false });
     } catch (err) {
       updateCol(idx, {
         error: err instanceof Error ? err.message : "Error",
@@ -262,8 +278,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
           aria-multiline="true"
           onFocus={(e) => {
             e.currentTarget.style.borderColor = "rgba(57,255,20,0.7)";
-            e.currentTarget.style.boxShadow =
-              "0 0 0 2px rgba(57,255,20,0.12)";
+            e.currentTarget.style.boxShadow = "0 0 0 2px rgba(57,255,20,0.12)";
           }}
           onBlur={(e) => {
             e.currentTarget.style.borderColor = "rgba(57,255,20,0.25)";
@@ -283,7 +298,10 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
             disabled={anyLoading || !prompt.trim()}
             className="font-bold px-6 py-2 rounded text-sm uppercase tracking-wider"
             style={{
-              backgroundColor: anyLoading || !prompt.trim() ? "rgba(57,255,20,0.3)" : "#39ff14",
+              backgroundColor:
+                anyLoading || !prompt.trim()
+                  ? "rgba(57,255,20,0.3)"
+                  : "#39ff14",
               color: "#0b0d0c",
               opacity: anyLoading || !prompt.trim() ? 0.5 : 1,
               cursor: anyLoading || !prompt.trim() ? "not-allowed" : "pointer",
@@ -300,6 +318,10 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
           const col = cols[idx];
           const providerDef = PROVIDERS.find((p) => p.id === col.providerId);
           const accentColor = COL_COLORS[idx];
+          const history = histories[idx];
+
+          // The latest assistant message — used to gate forward/follow-up buttons
+          const hasResponse = history.some((m) => m.role === "assistant");
 
           return (
             <div
@@ -359,8 +381,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
                       e.currentTarget.style.borderColor = `${accentColor}99`;
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(57,255,20,0.2)";
+                      e.currentTarget.style.borderColor = "rgba(57,255,20,0.2)";
                     }}
                   >
                     {PROVIDERS.map((p) => (
@@ -394,8 +415,7 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
                       e.currentTarget.style.borderColor = `${accentColor}99`;
                     }}
                     onBlur={(e) => {
-                      e.currentTarget.style.borderColor =
-                        "rgba(57,255,20,0.2)";
+                      e.currentTarget.style.borderColor = "rgba(57,255,20,0.2)";
                     }}
                   >
                     {(providerDef?.models ?? [col.model]).map((m) => (
@@ -407,23 +427,86 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
                 </div>
               </div>
 
-              {/* Response area — fills card */}
+              {/* Thread view — col-N-msg-i with data-role (10.4) */}
               <div
                 role="region"
                 aria-label={`${COL_LABELS[idx]} response`}
                 data-testid={`col-${idx}-response`}
-                className="flex-1 min-h-36 rounded p-3 font-mono text-sm whitespace-pre-wrap overflow-y-auto"
+                className="flex-1 rounded font-mono text-sm overflow-y-auto flex flex-col gap-2"
                 style={{
                   backgroundColor: "#080a09",
                   border: "1px solid rgba(57,255,20,0.08)",
                   color: "#c8d0ca",
                   lineHeight: "1.6",
                   minHeight: "9rem",
+                  padding: "0.75rem",
                 }}
               >
+                {history.length === 0 && !col.loading && !col.error && (
+                  <span
+                    style={{ color: "rgba(100,120,105,0.5)" }}
+                    className="italic text-sm"
+                  >
+                    No response yet
+                  </span>
+                )}
+
+                {history.map((msg, msgIdx) => {
+                  if (msg.forwarded) {
+                    // Forwarded-from bubble (10.4)
+                    const fromLabel = COL_LABELS[idx === 0 ? 1 : 0];
+                    return (
+                      <div
+                        key={msgIdx}
+                        data-testid={`col-${idx}-msg-${msgIdx}`}
+                        data-role="user"
+                        className="text-xs rounded px-3 py-2 self-end max-w-[90%] italic"
+                        style={{
+                          backgroundColor: `${accentColor}0a`,
+                          border: `1px solid ${accentColor}22`,
+                          color: "rgba(180,200,185,0.6)",
+                        }}
+                      >
+                        ↪ Forwarded from {fromLabel}
+                      </div>
+                    );
+                  }
+
+                  if (msg.role === "user") {
+                    return (
+                      <div
+                        key={msgIdx}
+                        data-testid={`col-${idx}-msg-${msgIdx}`}
+                        data-role="user"
+                        className="text-xs rounded px-3 py-2 self-end max-w-[90%]"
+                        style={{
+                          backgroundColor: `${accentColor}14`,
+                          border: `1px solid ${accentColor}33`,
+                          color: "#d4d8d5",
+                        }}
+                      >
+                        {msg.content}
+                      </div>
+                    );
+                  }
+
+                  // assistant
+                  return (
+                    <div
+                      key={msgIdx}
+                      data-testid={`col-${idx}-msg-${msgIdx}`}
+                      data-role="assistant"
+                      className="text-sm whitespace-pre-wrap self-start w-full"
+                      style={{ color: "#c8d0ca" }}
+                    >
+                      {msg.content}
+                    </div>
+                  );
+                })}
+
                 {col.loading && (
                   <span
-                    className="animate-pulse"
+                    className="animate-pulse text-sm"
                     style={{ color: accentColor }}
                   >
                     ▍ Thinking…
@@ -432,16 +515,10 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
                 {!col.loading && col.error && (
                   <span style={{ color: "#f87171" }}>⚠ {col.error}</span>
                 )}
-                {!col.loading && !col.error && col.response}
-                {!col.loading && !col.error && !col.response && (
-                  <span style={{ color: "rgba(100,120,105,0.5)" }} className="italic">
-                    No response yet
-                  </span>
-                )}
               </div>
 
               {/* Forward button — prominent */}
-              {col.response && !col.loading && (
+              {hasResponse && !col.loading && (
                 <button
                   onClick={() => forward(idx)}
                   data-testid={`col-${idx}-forward`}
@@ -490,12 +567,12 @@ export default function ComparePanel({ hosted = false }: { hosted?: boolean }) {
                     e.currentTarget.style.borderColor = `${accentColor}66`;
                   }}
                   onBlur={(e) => {
-                    e.currentTarget.style.borderColor =
-                      "rgba(57,255,20,0.15)";
+                    e.currentTarget.style.borderColor = "rgba(57,255,20,0.15)";
                   }}
                 />
                 <button
                   onClick={() => sendFollowUp(idx)}
+                  data-testid={`col-${idx}-followup-send`}
                   disabled={!col.followUp.trim() || col.loading}
                   aria-label={`Send follow-up for ${COL_LABELS[idx]}`}
                   className="text-xs px-3 py-1.5 rounded border"
